@@ -71,10 +71,12 @@ def load_templates_from_excel(file_path: str = TEMPLATE_FILE) -> dict:
 
     template_df = template_df[required_columns].copy()
 
+    # 空行を除外
     template_df = template_df.dropna(
         subset=["テンプレート名", "No", "測定項目"]
     )
 
+    # 文字列化
     template_df["テンプレート名"] = (
         template_df["テンプレート名"].astype(str).str.strip()
     )
@@ -83,6 +85,7 @@ def load_templates_from_excel(file_path: str = TEMPLATE_FILE) -> dict:
         template_df["測定項目"].astype(str).str.strip()
     )
 
+    # 空文字を除外
     template_df = template_df[
         (template_df["テンプレート名"] != "") &
         (template_df["No"] != "") &
@@ -192,6 +195,7 @@ def create_excel(df: pd.DataFrame, template_name: str) -> BytesIO:
             vertical="center"
         )
 
+    # 未完了一覧シート
     ws2 = wb.create_sheet("未完了一覧")
     ws2["A1"] = "未完了一覧"
     ws2["A1"].font = Font(size=16, bold=True)
@@ -241,6 +245,7 @@ def create_excel(df: pd.DataFrame, template_name: str) -> BytesIO:
     else:
         ws2["A4"] = "未完了項目はありません。"
 
+    # 列幅・行高調整
     for sheet in wb.worksheets:
         widths = {
             "A": 8,
@@ -281,35 +286,38 @@ st.markdown(
     <style>
     .block-container {
         padding-top: 1rem;
-        padding-left: 0.8rem;
-        padding-right: 0.8rem;
-        max-width: 700px;
+        padding-left: 0.6rem;
+        padding-right: 0.6rem;
+        max-width: 760px;
+    }
+
+    h1 {
+        font-size: 1.5rem !important;
+    }
+
+    h2, h3 {
+        font-size: 1.2rem !important;
     }
 
     div[data-testid="stMetric"] {
-        background-color: #f7f7f7;
-        padding: 8px;
+        padding: 4px;
         border-radius: 8px;
     }
 
-    .row-header {
-        font-weight: bold;
+    div[data-testid="stMetricValue"] {
+        font-size: 1.4rem;
+    }
+
+    div[data-testid="stDataFrame"] {
         font-size: 16px;
-        padding-top: 6px;
     }
 
-    .item-name {
+    div[data-testid="stDataEditor"] {
         font-size: 16px;
-        padding-top: 6px;
     }
 
-    div[data-testid="stCheckbox"] {
-        padding-top: 2px;
-    }
-
-    div[data-testid="stCheckbox"] label {
-        font-size: 18px;
-        min-height: 36px;
+    .stProgress > div > div > div > div {
+        height: 12px;
     }
     </style>
     """,
@@ -414,47 +422,38 @@ elif show_photo_none:
 # =========================
 
 st.markdown("---")
+st.write("チェック表")
 
-header_cols = st.columns([0.8, 3.2, 1.1, 1.1])
-header_cols[0].markdown("**No**")
-header_cols[1].markdown("**測定項目**")
-header_cols[2].markdown("**測定**")
-header_cols[3].markdown("**写真**")
+edited_df = st.data_editor(
+    display_df,
+    use_container_width=True,
+    hide_index=True,
+    disabled=["No", "測定項目"],
+    column_config={
+        "No": st.column_config.TextColumn(
+            "No",
+            width="small"
+        ),
+        "測定項目": st.column_config.TextColumn(
+            "測定項目",
+            width="medium"
+        ),
+        "測定": st.column_config.CheckboxColumn(
+            "測定",
+            width="small"
+        ),
+        "写真": st.column_config.CheckboxColumn(
+            "写真",
+            width="small"
+        ),
+    },
+    height=420
+)
 
-for idx, row in display_df.iterrows():
-    cols = st.columns([0.8, 3.2, 1.1, 1.1])
-
-    cols[0].markdown(
-        f"<div class='row-header'>{row['No']}</div>",
-        unsafe_allow_html=True
-    )
-
-    cols[1].markdown(
-        f"<div class='item-name'>{row['測定項目']}</div>",
-        unsafe_allow_html=True
-    )
-
-    measure_key = f"measure_{idx}"
-    photo_key = f"photo_{idx}"
-
-    new_measure = cols[2].checkbox(
-        "",
-        value=bool(st.session_state.df.at[idx, "測定"]),
-        key=measure_key,
-        label_visibility="collapsed"
-    )
-
-    new_photo = cols[3].checkbox(
-        "",
-        value=bool(st.session_state.df.at[idx, "写真"]),
-        key=photo_key,
-        label_visibility="collapsed"
-    )
-
-    st.session_state.df.at[idx, "測定"] = new_measure
-    st.session_state.df.at[idx, "写真"] = new_photo
-
-    st.markdown("---")
+# 編集結果を元データに反映
+for idx in edited_df.index:
+    st.session_state.df.at[idx, "測定"] = bool(edited_df.at[idx, "測定"])
+    st.session_state.df.at[idx, "写真"] = bool(edited_df.at[idx, "写真"])
 
 
 # =========================
